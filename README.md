@@ -8,6 +8,8 @@ Official command-line interface for the KmerHosting API.
 npm install --global @kmerhosting/cli@latest
 # or, with Bun (same npm registry)
 bun add --global @kmerhosting/cli@latest
+# GitHub source fallback while a release is being published:
+bun add --global github:KmerHosting/cli
 ```
 
 Set your API key in the environment:
