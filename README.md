@@ -5,7 +5,9 @@ Official command-line interface for the KmerHosting API.
 ## Install
 
 ```bash
-bun add -g @kmerhosting/cli
+npm install --global @kmerhosting/cli@latest
+# or, with Bun (same npm registry)
+bun add --global @kmerhosting/cli@latest
 ```
 
 Set your API key in the environment:
