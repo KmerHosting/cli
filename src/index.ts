@@ -53,6 +53,9 @@ Resources:
   kvm list|view <id>                       List or inspect KVM instances
   kvm action <id> start|stop|shutdown|restart
   kvm auto-renew <id> on|off               Change KVM auto-renew
+  kvm renew <id> [months]                  Renew a KVM instance
+  kvm cancel|keep-service <id>             Schedule or revoke KVM cancellation
+  kvm password <id> <password>              Reset KVM root password
   kvm snapshots list <id>                  List KVM snapshots
   kvm snapshots create <id> <name>         Create a KVM snapshot
   kvm snapshots update <id> <snapshot>     Update a KVM snapshot
@@ -258,6 +261,13 @@ async function run(args: ParsedArgs): Promise<void> {
     const state = required(rest[1], "on or off");
     if (state !== "on" && state !== "off") throw new Error("KVM auto-renew must be on or off.");
     result = await client.kvm.setAutoRenew(id, state === "on", ctx.mutationOptions);
+  } else if (resource === "kvm" && ["renew", "cancel", "keep-service", "password"].includes(command || "")) {
+    const id = required(rest[0], "KVM instance id");
+    const kvm = client.kvm as typeof client.kvm & { renew?: (id: string, months?: 1 | 3 | 6 | 12, options?: MutationOptions) => Promise<ApiEnvelope>; cancel?: (id: string, options?: MutationOptions) => Promise<ApiEnvelope>; keepService?: (id: string, options?: MutationOptions) => Promise<ApiEnvelope>; resetPassword?: (id: string, password: string, options?: MutationOptions) => Promise<ApiEnvelope> };
+    if (command === "renew") { if (!kvm.renew) throw new Error("Install the latest KmerHosting SDK before using KVM renewal."); const months = rest[1] ? Number(rest[1]) as 1 | 3 | 6 | 12 : undefined; result = await kvm.renew(id, months, ctx.mutationOptions); }
+    else if (command === "cancel") { confirmDestructive("cancel KVM service", id, ctx); if (!kvm.cancel) throw new Error("Install the latest KmerHosting SDK before using KVM cancellation."); result = await kvm.cancel(id, ctx.mutationOptions); }
+    else if (command === "keep-service") { if (!kvm.keepService) throw new Error("Install the latest KmerHosting SDK before using KVM recovery."); result = await kvm.keepService(id, ctx.mutationOptions); }
+    else { confirmDestructive("reset KVM root password", id, ctx); if (!kvm.resetPassword) throw new Error("Install the latest KmerHosting SDK before using KVM password reset."); result = await kvm.resetPassword(id, required(rest[1], "new root password"), ctx.mutationOptions); }
   } else if (resource === "kvm" && command === "snapshots") result = await runKvmSnapshots(client, rest, ctx);
   else if (resource === "vps") throw new Error("The `vps` resource was retired. Use `lxc` for LXC inventory or `kvm` for KVM management.");
   else throw new Error("Unknown command. Run `kmerhosting --help` for usage.");
