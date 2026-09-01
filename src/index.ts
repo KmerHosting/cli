@@ -234,7 +234,7 @@ async function run(args: ParsedArgs): Promise<void> {
     const action = required(rest[1], "LXC action") as "start" | "stop" | "restart" | "freeze";
     if (!["start", "stop", "restart", "freeze"].includes(action)) throw new Error("LXC action must be start, stop, restart, or freeze.");
     if (DESTRUCTIVE_ACTIONS.has(action)) confirmDestructive(action, required(rest[0], "LXC instance id"), ctx);
-    const actionMethod = (client.lxc as typeof client.lxc & { action?: (id: string, action: typeof action, options?: MutationOptions) => Promise<ApiEnvelope> }).action;
+    const actionMethod = (client.lxc as typeof client.lxc & { action?: (id: string, action: "start" | "stop" | "restart" | "freeze", options?: MutationOptions) => Promise<ApiEnvelope> }).action;
     if (!actionMethod) throw new Error("Install the latest KmerHosting SDK before using LXC actions.");
     result = await actionMethod(required(rest[0], "LXC instance id"), action, ctx.mutationOptions);
   } else if (resource === "lxc" && command === "snapshots") {
@@ -244,6 +244,7 @@ async function run(args: ParsedArgs): Promise<void> {
     const id = required(rest[1], "LXC instance id");
     if (snapshotCommand === "list") result = await snapshots.list(id);
     else { const name = required(rest[2], "snapshot name"); if (snapshotCommand === "delete" || snapshotCommand === "restore") confirmDestructive(`snapshot ${snapshotCommand}`, name, ctx); if (!["create", "delete", "restore"].includes(snapshotCommand)) throw new Error("Snapshot command must be list, create, delete, or restore."); result = await snapshots.mutate(id, snapshotCommand as "create" | "delete" | "restore", name, ctx.mutationOptions); }
+  }
   else if (resource === "kvm" && command === "list") result = await client.kvm.list();
   else if (resource === "kvm" && (command === "view" || command === "get")) result = await client.kvm.get(required(rest[0], "KVM instance id"));
   else if (resource === "kvm" && command === "action") {
