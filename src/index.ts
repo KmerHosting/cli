@@ -4,8 +4,8 @@ import {
   KmerHostingClient,
   KmerHostingError,
   type ApiEnvelope,
+  type KvmAction,
   type MutationOptions,
-  type VpsAction,
 } from "@kmerhosting/sdk";
 
 type ParsedArgs = {
@@ -19,7 +19,7 @@ type CliContext = {
   mutationOptions: MutationOptions;
 };
 
-const VERSION = "0.1.0";
+const VERSION = "0.2.0";
 const DESTRUCTIVE_ACTIONS = new Set(["stop", "shutdown", "delete"]);
 
 function help(): string {
@@ -45,13 +45,14 @@ Resources:
   hosting services                         List shared-hosting services
   hosting stats <service-id>               Show hosting statistics
   hosting panel-access <service-id>        Create a temporary panel link
-  vps list|view <id>                       List or inspect LXC VPS instances
-  vps action <id> start|stop|shutdown|restart
-  vps auto-renew <id> on|off               Change VPS auto-renew
-  vps snapshots list <id>                  List VPS snapshots
-  vps snapshots create <id> <name>         Create a VPS snapshot
-  vps snapshots update <id> <snapshot>     Update a VPS snapshot
-  vps snapshots delete <id> <snapshot>     Delete a VPS snapshot
+  lxc list|view <id>                       List or inspect LXC instances
+  kvm list|view <id>                       List or inspect KVM instances
+  kvm action <id> start|stop|shutdown|restart
+  kvm auto-renew <id> on|off               Change KVM auto-renew
+  kvm snapshots list <id>                  List KVM snapshots
+  kvm snapshots create <id> <name>         Create a KVM snapshot
+  kvm snapshots update <id> <snapshot>     Update a KVM snapshot
+  kvm snapshots delete <id> <snapshot>     Delete a KVM snapshot
 
 Options:
   --json                                   Print machine-readable JSON
@@ -214,20 +215,23 @@ async function run(args: ParsedArgs): Promise<void> {
     const target = flag(args, "target") as "panel" | "filemanager" | undefined;
     if (target && target !== "panel" && target !== "filemanager") throw new Error("--target must be panel or filemanager.");
     result = await client.hosting.createPanelAccess(required(rest[0], "hosting service id"), target, ctx.mutationOptions);
-  } else if (resource === "vps" && command === "list") result = await client.vps.list();
-  else if (resource === "vps" && (command === "view" || command === "get")) result = await client.vps.get(required(rest[0], "VPS id"));
-  else if (resource === "vps" && command === "action") {
-    const id = required(rest[0], "VPS id");
-    const action = required(rest[1], "VPS action") as VpsAction;
-    if (!["start", "stop", "shutdown", "restart"].includes(action)) throw new Error("VPS action must be start, stop, shutdown, or restart.");
+  } else if (resource === "lxc" && command === "list") result = await client.lxc.list();
+  else if (resource === "lxc" && (command === "view" || command === "get")) result = await client.lxc.get(required(rest[0], "LXC instance id"));
+  else if (resource === "kvm" && command === "list") result = await client.kvm.list();
+  else if (resource === "kvm" && (command === "view" || command === "get")) result = await client.kvm.get(required(rest[0], "KVM instance id"));
+  else if (resource === "kvm" && command === "action") {
+    const id = required(rest[0], "KVM instance id");
+    const action = required(rest[1], "KVM action") as KvmAction;
+    if (!["start", "stop", "shutdown", "restart"].includes(action)) throw new Error("KVM action must be start, stop, shutdown, or restart.");
     if (DESTRUCTIVE_ACTIONS.has(action)) confirmDestructive(action, id, ctx);
-    result = await client.vps.action(id, action, ctx.mutationOptions);
-  } else if (resource === "vps" && command === "auto-renew") {
-    const id = required(rest[0], "VPS id");
+    result = await client.kvm.action(id, action, ctx.mutationOptions);
+  } else if (resource === "kvm" && command === "auto-renew") {
+    const id = required(rest[0], "KVM instance id");
     const state = required(rest[1], "on or off");
-    if (state !== "on" && state !== "off") throw new Error("VPS auto-renew must be on or off.");
-    result = await client.vps.setAutoRenew(id, state === "on", ctx.mutationOptions);
-  } else if (resource === "vps" && command === "snapshots") result = await runSnapshots(client, rest, ctx);
+    if (state !== "on" && state !== "off") throw new Error("KVM auto-renew must be on or off.");
+    result = await client.kvm.setAutoRenew(id, state === "on", ctx.mutationOptions);
+  } else if (resource === "kvm" && command === "snapshots") result = await runKvmSnapshots(client, rest, ctx);
+  else if (resource === "vps") throw new Error("The `vps` resource was retired. Use `lxc` for LXC inventory or `kvm` for KVM management.");
   else throw new Error("Unknown command. Run `kmerhosting --help` for usage.");
 
   output(result, ctx);
@@ -251,18 +255,18 @@ async function runDomainDns(client: KmerHostingClient, args: string[], ctx: CliC
   throw new Error("Unknown domains dns command.");
 }
 
-async function runSnapshots(client: KmerHostingClient, args: string[], ctx: CliContext): Promise<ApiEnvelope> {
+async function runKvmSnapshots(client: KmerHostingClient, args: string[], ctx: CliContext): Promise<ApiEnvelope> {
   const [command, serviceId, extra] = args;
-  const id = required(serviceId, "VPS id");
-  if (command === "list") return client.vps.snapshots.list(id);
-  if (command === "create") return client.vps.snapshots.create(id, { name: required(extra, "snapshot name"), description: args[3] }, ctx.mutationOptions);
-  if (command === "update") return client.vps.snapshots.update(id, required(extra, "snapshot id"), { name: args[3], description: args[4] }, ctx.mutationOptions);
+  const id = required(serviceId, "KVM instance id");
+  if (command === "list") return client.kvm.snapshots.list(id);
+  if (command === "create") return client.kvm.snapshots.create(id, { name: required(extra, "snapshot name"), description: args[3] }, ctx.mutationOptions);
+  if (command === "update") return client.kvm.snapshots.update(id, required(extra, "snapshot id"), { name: args[3], description: args[4] }, ctx.mutationOptions);
   if (command === "delete") {
     const snapshotId = required(extra, "snapshot id");
     confirmDestructive("delete snapshot", snapshotId, ctx);
-    return client.vps.snapshots.delete(id, snapshotId, ctx.mutationOptions);
+    return client.kvm.snapshots.delete(id, snapshotId, ctx.mutationOptions);
   }
-  throw new Error("Unknown vps snapshots command.");
+  throw new Error("Unknown kvm snapshots command.");
 }
 
 export async function main(argv = process.argv.slice(2)): Promise<number> {

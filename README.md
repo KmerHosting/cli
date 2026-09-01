@@ -22,23 +22,26 @@ For a staging or self-hosted API, set `KMERHOSTING_API_URL` or pass `--base-url`
 kmerhosting account get
 kmerhosting services list
 kmerhosting domains list --json
-kmerhosting vps action INSTANCE_ID restart
+kmerhosting lxc list
+kmerhosting kvm action INSTANCE_ID restart
 ```
 
 Mutations receive an idempotency key automatically. Reuse one when retrying the same operation:
 
 ```bash
-kmerhosting vps action INSTANCE_ID restart --idempotency-key deploy-2026-08-30
+kmerhosting kvm action INSTANCE_ID restart --idempotency-key deploy-2026-08-30
 ```
 
 Destructive operations require an explicit `--yes` confirmation. DNS records and snapshot payloads are JSON objects:
 
 ```bash
 kmerhosting domains dns create DOMAIN_ID '{"type":"A","name":"@","content":"203.0.113.10","ttl":300}'
-kmerhosting vps snapshots create INSTANCE_ID before-upgrade
+kmerhosting kvm snapshots create INSTANCE_ID before-upgrade
 ```
 
 Run `kmerhosting --help` for the complete command list. Use `--json` for scripts and CI.
+
+LXC and KVM are separate resources. LXC currently supports inventory commands in the public API. KVM supports inventory, power actions, auto-renew and snapshot management. The former `vps` command now returns an actionable migration error instead of guessing which product you intended.
 
 ## Security
 

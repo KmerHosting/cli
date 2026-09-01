@@ -20,8 +20,23 @@ test("rejects destructive actions without --yes before making a request", async 
   console.error = (...values: unknown[]) => { output += values.join(" "); };
   try {
     process.env.KMERHOSTING_API_KEY = "kh_test";
-    expect(await main(["vps", "action", "vps-1", "stop"])).toBe(1);
+    expect(await main(["kvm", "action", "vps-1", "stop"])).toBe(1);
     expect(output).toContain("--yes");
+  } finally {
+    console.error = original;
+    delete process.env.KMERHOSTING_API_KEY;
+  }
+});
+
+test("explains how to migrate the retired vps resource", async () => {
+  const original = console.error;
+  let output = "";
+  console.error = (...values: unknown[]) => { output += values.join(" "); };
+  try {
+    process.env.KMERHOSTING_API_KEY = "kh_test";
+    expect(await main(["vps", "list"])).toBe(1);
+    expect(output).toContain("Use `lxc`");
+    expect(output).toContain("`kvm`");
   } finally {
     console.error = original;
     delete process.env.KMERHOSTING_API_KEY;
