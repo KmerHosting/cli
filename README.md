@@ -41,6 +41,7 @@ For a staging or self-hosted API, set `KMERHOSTING_API_URL` or pass `--base-url`
 
 ```bash
 kmerhosting account get
+kmerhosting account api-usage
 kmerhosting services list
 kmerhosting domains list --json
 kmerhosting lxc list

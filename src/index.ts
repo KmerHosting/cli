@@ -30,6 +30,7 @@ Usage:
 
 Resources:
   account get                              Show the authenticated account
+  account api-usage                        List API request activity and client IPv4s
   services list|view <id>                  List or inspect services
   domains list|view <id>                   List or inspect domains
   domains dns list <domain-id>             List DNS records
@@ -191,6 +192,11 @@ async function run(args: ParsedArgs): Promise<void> {
   let result: ApiEnvelope;
 
   if (resource === "account" && command === "get") result = await client.account.get();
+  else if (resource === "account" && command === "api-usage") {
+    const apiUsage = (client.account as { apiUsage?: () => Promise<ApiEnvelope> }).apiUsage;
+    if (!apiUsage) throw new Error("Install the latest KmerHosting SDK before using account api-usage.");
+    result = await apiUsage();
+  }
   else if (resource === "services" && command === "list") result = await client.services.list();
   else if (resource === "services" && (command === "view" || command === "get")) result = await client.services.get(required(rest[0], "service id"));
   else if (resource === "domains" && command === "list") result = await client.domains.list();
