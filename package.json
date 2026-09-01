@@ -15,7 +15,7 @@
     "build": "tsc -p tsconfig.json",
     "typecheck": "tsc --noEmit",
     "test": "bun test",
-    "prepare": "bun run build"
+    "prepare": "npm run build"
   },
   "dependencies": {
     "@kmerhosting/sdk": "^0.2.0"
