@@ -5,13 +5,8 @@ Official command-line interface for the KmerHosting API.
 ## Install
 
 ```bash
-# Available immediately from GitHub:
+# Install from the official GitHub repository:
 bun add --global github:KmerHosting/cli
-
-# If the package is available in the npm registry (same public registry):
-npm install --global @kmerhosting/cli@latest
-# or
-bun add --global @kmerhosting/cli@latest
 ```
 
 On Windows PowerShell, if Bun warns that `C:\Users\<you>\.bun\bin` is not in `PATH`, enable it for the current terminal with:
