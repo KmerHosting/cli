@@ -1,6 +1,6 @@
 {
   "name": "@kmerhosting/cli",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "Official command-line interface for the KmerHosting API.",
   "license": "Apache-2.0",
   "type": "module",
@@ -15,16 +15,13 @@
     "build": "tsc -p tsconfig.json",
     "typecheck": "tsc --noEmit",
     "test": "bun test",
-    "prepare": "npm run build"
+    "prepare": "bun run build"
   },
   "dependencies": {
-    "@kmerhosting/sdk": "^0.2.0"
+    "@kmerhosting/sdk": "^0.3.0"
   },
   "devDependencies": {
     "@types/bun": "1.4.0",
     "typescript": "5.7.3"
-  },
-  "publishConfig": {
-    "access": "public"
   }
 }

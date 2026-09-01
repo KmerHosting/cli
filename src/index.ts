@@ -19,7 +19,7 @@ type CliContext = {
   mutationOptions: MutationOptions;
 };
 
-const VERSION = "0.2.0";
+const VERSION = "0.3.0";
 const DESTRUCTIVE_ACTIONS = new Set(["stop", "shutdown", "delete"]);
 
 function help(): string {
@@ -50,6 +50,11 @@ Resources:
   lxc metrics <id>                         Show LXC metrics for the last 24 hours
   lxc action <id> start|stop|restart|freeze
   lxc snapshots list|create|delete|restore <id> [name]
+  lxc password <id> <password>             Change the LXC root password
+  lxc reinstall <id> <distribution>        Erase and reinstall an LXC instance
+  lxc terminal-ticket <id>                 Create a 60-second terminal ticket
+  lxc auto-renew <id> on|off               Change LXC auto-renew
+  lxc billing-period <id> 1|3|6|12         Change the LXC billing period
   kvm list|view <id>                       List or inspect KVM instances
   kvm action <id> start|stop|shutdown|restart
   kvm auto-renew <id> on|off               Change KVM auto-renew
@@ -60,6 +65,7 @@ Resources:
   kvm snapshots create <id> <name>         Create a KVM snapshot
   kvm snapshots update <id> <snapshot>     Update a KVM snapshot
   kvm snapshots delete <id> <snapshot>     Delete a KVM snapshot
+  kvm snapshots rollback <id> <snapshot>   Roll back a KVM snapshot
 
 Options:
   --json                                   Print machine-readable JSON
@@ -198,11 +204,7 @@ async function run(args: ParsedArgs): Promise<void> {
   let result: ApiEnvelope;
 
   if (resource === "account" && command === "get") result = await client.account.get();
-  else if (resource === "account" && command === "api-usage") {
-    const apiUsage = (client.account as { apiUsage?: () => Promise<ApiEnvelope> }).apiUsage;
-    if (!apiUsage) throw new Error("Install the latest KmerHosting SDK before using account api-usage.");
-    result = await apiUsage();
-  }
+  else if (resource === "account" && command === "api-usage") result = await client.account.apiUsage();
   else if (resource === "services" && command === "list") result = await client.services.list();
   else if (resource === "services" && (command === "view" || command === "get")) result = await client.services.get(required(rest[0], "service id"));
   else if (resource === "domains" && command === "list") result = await client.domains.list();
@@ -229,24 +231,40 @@ async function run(args: ParsedArgs): Promise<void> {
     result = await client.hosting.createPanelAccess(required(rest[0], "hosting service id"), target, ctx.mutationOptions);
   } else if (resource === "lxc" && command === "list") result = await client.lxc.list();
   else if (resource === "lxc" && (command === "view" || command === "get")) result = await client.lxc.get(required(rest[0], "LXC instance id"));
-  else if (resource === "lxc" && command === "metrics") {
-    const metrics = (client.lxc as typeof client.lxc & { metrics?: (id: string) => Promise<ApiEnvelope> }).metrics;
-    if (!metrics) throw new Error("Install the latest KmerHosting SDK before using LXC metrics.");
-    result = await metrics(required(rest[0], "LXC instance id"));
-  } else if (resource === "lxc" && command === "action") {
+  else if (resource === "lxc" && command === "metrics") result = await client.lxc.metrics(required(rest[0], "LXC instance id"));
+  else if (resource === "lxc" && command === "action") {
     const action = required(rest[1], "LXC action") as "start" | "stop" | "restart" | "freeze";
     if (!["start", "stop", "restart", "freeze"].includes(action)) throw new Error("LXC action must be start, stop, restart, or freeze.");
     if (DESTRUCTIVE_ACTIONS.has(action)) confirmDestructive(action, required(rest[0], "LXC instance id"), ctx);
-    const actionMethod = (client.lxc as typeof client.lxc & { action?: (id: string, action: "start" | "stop" | "restart" | "freeze", options?: MutationOptions) => Promise<ApiEnvelope> }).action;
-    if (!actionMethod) throw new Error("Install the latest KmerHosting SDK before using LXC actions.");
-    result = await actionMethod(required(rest[0], "LXC instance id"), action, ctx.mutationOptions);
+    result = await client.lxc.action(required(rest[0], "LXC instance id"), action, ctx.mutationOptions);
   } else if (resource === "lxc" && command === "snapshots") {
-    const snapshots = (client.lxc as typeof client.lxc & { snapshots?: { list: (id: string) => Promise<ApiEnvelope>; mutate: (id: string, action: "create" | "delete" | "restore", name: string, options?: MutationOptions) => Promise<ApiEnvelope> } }).snapshots;
-    if (!snapshots) throw new Error("Install the latest KmerHosting SDK before using LXC snapshots.");
     const snapshotCommand = required(rest[0], "snapshot command");
     const id = required(rest[1], "LXC instance id");
-    if (snapshotCommand === "list") result = await snapshots.list(id);
-    else { const name = required(rest[2], "snapshot name"); if (snapshotCommand === "delete" || snapshotCommand === "restore") confirmDestructive(`snapshot ${snapshotCommand}`, name, ctx); if (!["create", "delete", "restore"].includes(snapshotCommand)) throw new Error("Snapshot command must be list, create, delete, or restore."); result = await snapshots.mutate(id, snapshotCommand as "create" | "delete" | "restore", name, ctx.mutationOptions); }
+    if (snapshotCommand === "list") result = await client.lxc.snapshots.list(id);
+    else { const name = required(rest[2], "snapshot name"); if (snapshotCommand === "delete" || snapshotCommand === "restore") confirmDestructive(`snapshot ${snapshotCommand}`, name, ctx); if (!["create", "delete", "restore"].includes(snapshotCommand)) throw new Error("Snapshot command must be list, create, delete, or restore."); result = await client.lxc.snapshots.mutate(id, snapshotCommand as "create" | "delete" | "restore", name, ctx.mutationOptions); }
+  } else if (resource === "lxc" && command === "password") {
+    const id = required(rest[0], "LXC instance id");
+    confirmDestructive("change LXC root password", id, ctx);
+    result = await client.lxc.changePassword(id, required(rest[1], "new root password"), ctx.mutationOptions);
+  } else if (resource === "lxc" && command === "reinstall") {
+    const id = required(rest[0], "LXC instance id");
+    confirmDestructive("erase and reinstall LXC instance", id, ctx);
+    result = await client.lxc.reinstall(id, required(rest[1], "distribution"), ctx.mutationOptions);
+  } else if (resource === "lxc" && command === "terminal-ticket") {
+    const id = required(rest[0], "LXC instance id");
+    confirmDestructive("issue LXC terminal access", id, ctx);
+    result = await client.lxc.createTerminalTicket(id, ctx.mutationOptions);
+  } else if (resource === "lxc" && command === "auto-renew") {
+    const id = required(rest[0], "LXC instance id");
+    const state = required(rest[1], "on or off");
+    if (state !== "on" && state !== "off") throw new Error("LXC auto-renew must be on or off.");
+    if (state === "off") confirmDestructive("disable LXC auto-renew", id, ctx);
+    result = await client.lxc.setAutoRenew(id, state === "on", ctx.mutationOptions);
+  } else if (resource === "lxc" && command === "billing-period") {
+    const id = required(rest[0], "LXC instance id");
+    const billingMonths = Number(required(rest[1], "billing period"));
+    if (![1, 3, 6, 12].includes(billingMonths)) throw new Error("LXC billing period must be 1, 3, 6, or 12 months.");
+    result = await client.lxc.setBillingPeriod(id, billingMonths as 1 | 3 | 6 | 12, ctx.mutationOptions);
   }
   else if (resource === "kvm" && command === "list") result = await client.kvm.list();
   else if (resource === "kvm" && (command === "view" || command === "get")) result = await client.kvm.get(required(rest[0], "KVM instance id"));
@@ -303,6 +321,11 @@ async function runKvmSnapshots(client: KmerHostingClient, args: string[], ctx: C
     const snapshotId = required(extra, "snapshot id");
     confirmDestructive("delete snapshot", snapshotId, ctx);
     return client.kvm.snapshots.delete(id, snapshotId, ctx.mutationOptions);
+  }
+  if (command === "rollback") {
+    const snapshotId = required(extra, "snapshot id");
+    confirmDestructive("rollback snapshot", snapshotId, ctx);
+    return client.kvm.snapshots.rollback(id, snapshotId, ctx.mutationOptions);
   }
   throw new Error("Unknown kvm snapshots command.");
 }

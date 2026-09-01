@@ -40,6 +40,7 @@ kmerhosting account api-usage
 kmerhosting services list
 kmerhosting domains list --json
 kmerhosting lxc list
+kmerhosting lxc metrics INSTANCE_ID
 kmerhosting kvm action INSTANCE_ID restart
 ```
 
@@ -54,15 +55,16 @@ Destructive operations require an explicit `--yes` confirmation. DNS records and
 ```bash
 kmerhosting domains dns create DOMAIN_ID '{"type":"A","name":"@","content":"203.0.113.10","ttl":300}'
 kmerhosting kvm snapshots create INSTANCE_ID before-upgrade
+kmerhosting lxc reinstall INSTANCE_ID ubuntu-24.04 --yes
 ```
 
 Run `kmerhosting --help` for the complete command list. Use `--json` for scripts and CI.
 
-LXC and KVM are separate resources. LXC currently supports inventory commands in the public API. KVM supports inventory, power actions, auto-renew and snapshot management. The former `vps` command now returns an actionable migration error instead of guessing which product you intended.
+LXC and KVM are separate resources. LXC supports inventory, metrics, power, snapshots, password changes, reinstallations, short-lived terminal tickets and subscription settings. KVM supports inventory, power, credentials, renewals, cancellation recovery and the full snapshot lifecycle. The former `vps` command returns an actionable migration error instead of guessing which product you intended.
 
 ## Security
 
-The CLI uses the same customer API key as the official SDK. Keep it out of source control, browser code, shell history and logs. Prefer an environment variable or a secret manager.
+The CLI uses the same customer API key as the official SDK. Keep it out of source control, browser code, shell history and logs. Prefer an environment variable or a secret manager. Dangerous scopes are restricted to the IPv4 addresses selected when the key is created, and destructive CLI commands additionally require `--yes`.
 
 ## License
 

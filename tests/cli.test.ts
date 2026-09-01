@@ -9,6 +9,8 @@ test("prints help without credentials", async () => {
     expect(await main(["--help"])).toBe(0);
     expect(output).toContain("KmerHosting CLI");
     expect(output).toContain("KMERHOSTING_API_KEY");
+    expect(output).toContain("lxc reinstall");
+    expect(output).toContain("kvm snapshots rollback");
   } finally {
     console.log = original;
   }
