@@ -39,6 +39,7 @@ kmerhosting account get
 kmerhosting account api-usage
 kmerhosting services list
 kmerhosting domains list --json
+kmerhosting domains search example.com example.cm   # public availability and price, no API key needed
 kmerhosting lxc list
 kmerhosting lxc metrics INSTANCE_ID
 kmerhosting kvm action INSTANCE_ID restart
