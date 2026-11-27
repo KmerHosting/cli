@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 import { KmerHostingClient, KmerHostingError, } from "@kmerhosting/sdk";
-const VERSION = "0.3.0";
+const VERSION = "0.4.0";
 const DESTRUCTIVE_ACTIONS = new Set(["stop", "shutdown", "delete"]);
 function help() {
     return `KmerHosting CLI ${VERSION}
@@ -13,6 +13,7 @@ Resources:
   account api-usage                        List API request activity and client IPv4s
   services list|view <id>                  List or inspect services
   domains list|view <id>                   List or inspect domains
+  domains search <name...>                 Check availability and price (public, no API key)
   domains dns list <domain-id>             List DNS records
   domains dns create <domain-id>           Create a DNS record
   domains dns update <domain-id> <record> <json>
@@ -174,8 +175,51 @@ function output(result, ctx) {
     else
         printHuman(dataOf(result));
 }
+/** Public availability search: unauthenticated, so it works without KMERHOSTING_API_KEY. */
+async function searchDomains(names) {
+    const list = names.map((name) => name.trim()).filter(Boolean);
+    if (list.length < 1 || list.length > 20)
+        throw new Error("Pass between 1 and 20 domain names to `domains search`.");
+    const base = (process.env.KMERHOSTING_DOMAIN_SEARCH_URL ?? "https://domain.kmerhosting.com").replace(/\/+$/, "");
+    const response = await fetch(`${base}/api/domain-search?${new URLSearchParams({ domains: list.join(",") })}`, { headers: { Accept: "application/json" } });
+    const text = await response.text();
+    let payload = {};
+    try {
+        payload = text ? JSON.parse(text) : {};
+    }
+    catch {
+        payload = { message: text };
+    }
+    if (!response.ok) {
+        const retryAfter = response.headers.get("Retry-After");
+        const code = typeof payload.error === "string" ? payload.error : response.status === 429 ? "search_rate_limited" : "request_failed";
+        const message = typeof payload.message === "string" ? payload.message : `Domain search failed with status ${response.status}.`;
+        throw new Error(`${message} (${code}, HTTP ${response.status})${retryAfter ? ` Retry in ${retryAfter}s.` : ""}`);
+    }
+    return payload;
+}
+function searchRows(results) {
+    return results.map((entry) => {
+        const registrar = (entry.registrar ?? {});
+        const price = (entry.price ?? {});
+        return {
+            domain: entry.domainName,
+            status: registrar.status ?? (registrar.available ? "available" : "unavailable"),
+            registration_usd: price.registration_price_usd ?? registrar.customerPriceUsd,
+            renewal_usd: price.renewal_price_usd,
+        };
+    });
+}
 async function run(args) {
     const [resource, command, ...rest] = args.positionals;
+    if (resource === "domains" && command === "search") {
+        const found = await searchDomains(rest);
+        if (hasFlag(args, "json"))
+            console.log(JSON.stringify(found, null, 2));
+        else
+            printHuman(searchRows(found.results ?? []));
+        return;
+    }
     const client = createClient(args);
     const ctx = context(args);
     let result;
